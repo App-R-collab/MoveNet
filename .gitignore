@@ -9,3 +9,6 @@ Thumbs.db
 
 # Configuración de VS Code
 .vscode/
+
+# Base de datos local
+db.sqlite3
