@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro con Referido - MoveNet</title>
+</head>
+<body>
+  <h2>Registro de Usuario</h2>
+  <form id="registerForm">
+    <label>Nombre de Usuario:</label><br>
+    <input type="text" id="username" required><br><br>
+
+    <label>Contraseña:</label><br>
+    <input type="password" id="password" required><br><br>
+
+    <label>Código de Referido (opcional):</label><br>
+    <input type="text" id="referred_by"><br><br>
+
+    <button type="submit">Registrarse</button>
+  </form>
+
+  <p id="responseMsg" style="color: green;"></p>
+
+  <script>
+    const form = document.getElementById('registerForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const referred_by = document.getElementById('referred_by').value;
+
+      const response = await fetch('http://127.0.0.1:8000/api/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password, referred_by })
+      });
+
+      const data = await response.json();
+      document.getElementById('responseMsg').textContent = data.message || data.error;
+    });
+  </script>
+</body>
+</html>
