@@ -5,12 +5,15 @@ from django.views.generic import RedirectView
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Autenticación con JWT
+    # JWT Authentication
     path('api/token/', include('backend.urls_auth')),
 
-    # Rutas de usuarios
+    # User routes
     path('api/', include('users.urls')),
 
-    # Redirección de / hacia /api/
-    re_path(r'^$', RedirectView.as_view(url='/api/', permanent=False)),
+    # Redirect root URL to a valid endpoint (e.g., /api/register/)
+    re_path(r'^$', RedirectView.as_view(url='/api/register/', permanent=False)),
+
+    # Redirect /api/ to /api/register/ if you want something to show
+    re_path(r'^api/$', RedirectView.as_view(url='/api/register/', permanent=False)),
 ]
