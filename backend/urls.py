@@ -1,19 +1,30 @@
 from django.contrib import admin
 from django.urls import path, include, re_path
-from django.views.generic import RedirectView
+from django.http import JsonResponse
+
+# Vista informativa por defecto
+def api_root(request):
+    return JsonResponse({
+        "message": "Bienvenido a la API de MoveNet",
+        "endpoints": [
+            "/api/token/",
+            "/api/register/",
+            "/api/register/driver/",
+            "/api/register/passenger/",
+            "/api/driver/status/",
+        ]
+    })
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # JWT Authentication
+    # Autenticación con JWT
     path('api/token/', include('backend.urls_auth')),
 
-    # User routes
+    # Rutas de la app users
     path('api/', include('users.urls')),
 
-    # Redirect root URL to a valid endpoint (e.g., /api/register/)
-    re_path(r'^$', RedirectView.as_view(url='/api/register/', permanent=False)),
-
-    # Redirect /api/ to /api/register/ if you want something to show
-    re_path(r'^api/$', RedirectView.as_view(url='/api/register/', permanent=False)),
+    # Ruta base para mostrar algo si entran a / o /api/
+    path('', api_root),
+    path('api/', api_root),
 ]
