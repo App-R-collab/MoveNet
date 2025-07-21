@@ -1,4 +1,3 @@
-from users.views import protected_view, register_view
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -6,8 +5,6 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/protected/', protected_view),
-    path('api/register/', register_view, name='register_user'),  # ← NUEVA RUTA
+    path('', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

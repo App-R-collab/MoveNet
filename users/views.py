@@ -4,16 +4,18 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from .models import Driver, Passenger
 
 User = get_user_model()
 
-# Vista protegida que ya tenías (la dejamos igual)
+# Vista protegida
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({"message": "¡Accediste a una vista protegida con éxito!"})
 
-# Nueva vista de registro con lógica de referido opcional
+
+# Registro de usuario con referido opcional
 @api_view(['POST'])
 def register_view(request):
     username = request.data.get('username')
@@ -36,3 +38,50 @@ def register_view(request):
 
     except IntegrityError:
         return Response({'error': 'El nombre de usuario ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Registro de conductor
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_driver(request):
+    user = request.user
+    data = request.data
+
+    if hasattr(user, 'driver'):
+        return Response({"detail": "Este usuario ya es conductor."}, status=400)
+
+    driver = Driver.objects.create(
+        user=user,
+        license_number=data.get("license_number"),
+        car_plate=data.get("car_plate"),
+    )
+    return Response({"detail": "Conductor registrado. Pendiente de aprobación."})
+
+
+# Registro de pasajero
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_passenger(request):
+    user = request.user
+
+    if hasattr(user, 'passenger'):
+        return Response({"detail": "Este usuario ya es pasajero."}, status=400)
+
+    passenger = Passenger.objects.create(user=user)
+    return Response({"detail": "Pasajero registrado correctamente."})
+
+
+# Estado del conductor
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_driver_status(request):
+    user = request.user
+    try:
+        driver = user.driver
+        return Response({
+            "is_approved": driver.is_approved,
+            "license_number": driver.license_number,
+            "car_plate": driver.car_plate
+        })
+    except Driver.DoesNotExist:
+        return Response({"detail": "No es un conductor registrado."}, status=404)
