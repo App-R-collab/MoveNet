@@ -7,6 +7,7 @@ from .views import (
     check_driver_status,
     TripListView,
     TripCreateView,
+    assign_driver_to_trip,
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     # Endpoints para viajes
     path('trips/', TripListView.as_view(), name='trip-list'),
     path('trips/create/', TripCreateView.as_view(), name='trip-create'),
+    path('trips/<int:trip_id>/assign_driver/', assign_driver_to_trip, name='assign-driver-to-trip'),
 ]

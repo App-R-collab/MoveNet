@@ -101,3 +101,36 @@ class TripCreateView(generics.CreateAPIView):
         if not passenger:
             raise serializers.ValidationError("El usuario no es un pasajero registrado.")
         serializer.save(passenger=passenger)
+
+# ==========================
+# Asignar conductor a un viaje pendiente (mock)
+# ==========================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def assign_driver_to_trip(request, trip_id):
+    """
+    Asigna automáticamente un conductor disponible (aprobado) a un viaje pendiente.
+    """
+    try:
+        trip = Trip.objects.get(id=trip_id)
+    except Trip.DoesNotExist:
+        return Response({'error': 'Viaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if trip.status != 'pending':
+        return Response({'error': 'El viaje no está pendiente.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Buscar un conductor aprobado que no esté asignado a un viaje en curso
+    available_driver = Driver.objects.filter(is_approved=True).exclude(trips__status__in=['assigned', 'in_progress']).first()
+
+    if not available_driver:
+        return Response({'error': 'No hay conductores disponibles.'}, status=status.HTTP_404_NOT_FOUND)
+
+    trip.driver = available_driver
+    trip.status = 'assigned'
+    trip.save()
+
+    return Response({
+        'message': 'Conductor asignado exitosamente.',
+        'trip': TripSerializer(trip).data
+    }, status=status.HTTP_200_OK)
