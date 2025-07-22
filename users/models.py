@@ -28,3 +28,27 @@ class Passenger(models.Model):
 
     def __str__(self):
         return f"Pasajero: {self.user.username}"
+
+# Modelo de Viaje (Trip)
+class Trip(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('assigned', 'Asignado'),
+        ('in_progress', 'En curso'),
+        ('completed', 'Finalizado'),
+        ('cancelled', 'Cancelado'),
+    ]
+
+    passenger = models.ForeignKey(Passenger, on_delete=models.CASCADE, related_name='trips')
+    driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True, related_name='trips')
+    origin_lat = models.FloatField()
+    origin_lng = models.FloatField()
+    destination_lat = models.FloatField()
+    destination_lng = models.FloatField()
+    fare = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Viaje {self.id} - Pasajero: {self.passenger.user.username} - Estado: {self.status}"

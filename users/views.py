@@ -1,21 +1,23 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics, permissions, serializers
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from .models import Driver, Passenger
+from .models import Driver, Passenger, Trip
+from .serializers import TripSerializer
 
 User = get_user_model()
 
-# Vista protegida
+# ==========================
+# Vistas de Usuarios y Roles
+# ==========================
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({"message": "¡Accediste a una vista protegida con éxito!"})
 
-
-# Registro de usuario con referido opcional
 @api_view(['POST'])
 def register_view(request):
     username = request.data.get('username')
@@ -39,8 +41,6 @@ def register_view(request):
     except IntegrityError:
         return Response({'error': 'El nombre de usuario ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# Registro de conductor
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def register_driver(request):
@@ -57,8 +57,6 @@ def register_driver(request):
     )
     return Response({"detail": "Conductor registrado. Pendiente de aprobación."})
 
-
-# Registro de pasajero
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def register_passenger(request):
@@ -70,8 +68,6 @@ def register_passenger(request):
     passenger = Passenger.objects.create(user=user)
     return Response({"detail": "Pasajero registrado correctamente."})
 
-
-# Estado del conductor
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_driver_status(request):
@@ -85,3 +81,23 @@ def check_driver_status(request):
         })
     except Driver.DoesNotExist:
         return Response({"detail": "No es un conductor registrado."}, status=404)
+
+# ==========================
+# Vistas para Viajes (Trip)
+# ==========================
+
+class TripListView(generics.ListAPIView):
+    queryset = Trip.objects.all()
+    serializer_class = TripSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class TripCreateView(generics.CreateAPIView):
+    queryset = Trip.objects.all()
+    serializer_class = TripSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        passenger = getattr(self.request.user, 'passenger', None)
+        if not passenger:
+            raise serializers.ValidationError("El usuario no es un pasajero registrado.")
+        serializer.save(passenger=passenger)

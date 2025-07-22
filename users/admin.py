@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Driver, Passenger
+from .models import CustomUser, Driver, Passenger, Trip
 
 # Registro del modelo de usuario personalizado con el panel de Django
 class CustomUserAdmin(UserAdmin):
@@ -13,3 +13,4 @@ class CustomUserAdmin(UserAdmin):
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Driver)
 admin.site.register(Passenger)
+admin.site.register(Trip)
