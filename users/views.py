@@ -7,6 +7,8 @@ from django.db import IntegrityError
 from .models import Driver, Passenger, Trip
 from .serializers import TripSerializer
 
+from math import radians, cos, sin, asin, sqrt
+
 User = get_user_model()
 
 # ==========================
@@ -103,14 +105,15 @@ class TripCreateView(generics.CreateAPIView):
         serializer.save(passenger=passenger)
 
 # ==========================
-# Asignar conductor a un viaje pendiente (mock)
+# Asignar conductor más cercano a un viaje pendiente (mock notificación)
 # ==========================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def assign_driver_to_trip(request, trip_id):
     """
-    Asigna automáticamente un conductor disponible (aprobado) a un viaje pendiente.
+    Asigna automáticamente el conductor aprobado y disponible más cercano a un viaje pendiente.
+    Simula una notificación al conductor (mock).
     """
     try:
         trip = Trip.objects.get(id=trip_id)
@@ -120,17 +123,57 @@ def assign_driver_to_trip(request, trip_id):
     if trip.status != 'pending':
         return Response({'error': 'El viaje no está pendiente.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Buscar un conductor aprobado que no esté asignado a un viaje en curso
-    available_driver = Driver.objects.filter(is_approved=True).exclude(trips__status__in=['assigned', 'in_progress']).first()
+    # Obtener todos los conductores aprobados y disponibles
+    available_drivers = Driver.objects.filter(is_approved=True).exclude(trips__status__in=['assigned', 'in_progress'])
 
-    if not available_driver:
+    if not available_drivers.exists():
         return Response({'error': 'No hay conductores disponibles.'}, status=status.HTTP_404_NOT_FOUND)
 
-    trip.driver = available_driver
+    # Función para calcular la distancia entre dos puntos (Haversine)
+    def haversine(lat1, lon1, lat2, lon2):
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        r = 6371  # Radio de la Tierra en km
+        return c * r
+
+    # Buscar el conductor más cercano
+    min_distance = None
+    nearest_driver = None
+    for driver in available_drivers:
+        # Suponemos que el conductor tiene ubicación como pasajero (mock)
+        if hasattr(driver.user, 'passenger'):
+            current_lat = driver.user.passenger.current_lat
+            current_lng = driver.user.passenger.current_lng
+        else:
+            continue
+
+        if current_lat is None or current_lng is None:
+            continue
+
+        distance = haversine(
+            trip.origin_lat, trip.origin_lng,
+            current_lat, current_lng
+        )
+        if (min_distance is None) or (distance < min_distance):
+            min_distance = distance
+            nearest_driver = driver
+
+    if not nearest_driver:
+        return Response({'error': 'No hay conductores con ubicación disponible.'}, status=status.HTTP_404_NOT_FOUND)
+
+    trip.driver = nearest_driver
     trip.status = 'assigned'
     trip.save()
 
+    # Mock de notificación al conductor
+    notification_message = f"¡Conductor {nearest_driver.user.username} asignado al viaje {trip.id}! (Mock de notificación)"
+
     return Response({
-        'message': 'Conductor asignado exitosamente.',
+        'message': 'Conductor más cercano asignado exitosamente.',
+        'notification': notification_message,
+        'distance_km': round(min_distance, 2),
         'trip': TripSerializer(trip).data
     }, status=status.HTTP_200_OK)
