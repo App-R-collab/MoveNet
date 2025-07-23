@@ -36,7 +36,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', api_root_view),  # Para que / muestre algo
-    #path('api/', api_root_view),  # Para que /api/ muestre algo
+    path('api/', api_root_view),  # Para que /api/ muestre algo
 
     path('admin/', admin.site.urls),
     path('api/token/', include('backend.urls_auth')),
