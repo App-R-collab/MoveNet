@@ -5,7 +5,7 @@ from rest_framework import status, generics, permissions, serializers
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from .models import Driver, Passenger, Trip
-from .serializers import TripSerializer
+from .serializers import TripSerializer, DriverLocationUpdateSerializer
 
 from math import radians, cos, sin, asin, sqrt
 
@@ -186,14 +186,12 @@ def update_driver_location(request):
     user = request.user
     if not hasattr(user, 'driver'):
         return Response({'error': 'Solo los conductores pueden actualizar ubicación.'}, status=403)
-    lat = request.data.get('lat')
-    lng = request.data.get('lng')
-    if lat is None or lng is None:
-        return Response({'error': 'Faltan coordenadas.'}, status=400)
-    try:
-        user.driver.current_lat = float(lat)
-        user.driver.current_lng = float(lng)
-        user.driver.save()
-        return Response({'message': 'Ubicación actualizada correctamente.'})
-    except Exception as e:
-        return Response({'error': str(e)}, status=400)
+    serializer = DriverLocationUpdateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    lat = serializer.validated_data['lat']
+    lng = serializer.validated_data['lng']
+    user.driver.current_lat = lat
+    user.driver.current_lng = lng
+    user.driver.save()
+    return Response({'message': 'Ubicación actualizada correctamente.'})

@@ -31,3 +31,7 @@ class TripSerializer(serializers.ModelSerializer):
 
     def get_driver_username(self, obj):
         return obj.driver.user.username if obj.driver and obj.driver.user else None
+
+class DriverLocationUpdateSerializer(serializers.Serializer):
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
