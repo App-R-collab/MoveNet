@@ -9,6 +9,9 @@ from .serializers import TripSerializer, DriverLocationUpdateSerializer
 
 from math import radians, cos, sin, asin, sqrt
 
+# Importa el decorador de drf-yasg para documentar el body en Swagger
+from drf_yasg.utils import swagger_auto_schema
+
 User = get_user_model()
 
 # ==========================
@@ -177,6 +180,7 @@ def assign_driver_to_trip(request, trip_id):
 # Endpoint para actualizar ubicación del conductor
 # ==========================
 
+@swagger_auto_schema(method='post', request_body=DriverLocationUpdateSerializer)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_driver_location(request):
