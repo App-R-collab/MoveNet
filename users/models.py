@@ -16,6 +16,8 @@ class Driver(models.Model):
     car_plate = models.CharField(max_length=10)
     is_approved = models.BooleanField(default=False)  # Se aprueba manualmente
     created_at = models.DateTimeField(auto_now_add=True)
+    current_lat = models.FloatField(null=True, blank=True) 
+    current_lng = models.FloatField(null=True, blank=True) 
 
     def __str__(self):
         return f"Conductor: {self.user.username}"

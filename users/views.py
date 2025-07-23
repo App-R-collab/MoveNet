@@ -139,17 +139,12 @@ def assign_driver_to_trip(request, trip_id):
         r = 6371  # Radio de la Tierra en km
         return c * r
 
-    # Buscar el conductor más cercano
+    # Buscar el conductor más cercano usando current_lat/current_lng de Driver
     min_distance = None
     nearest_driver = None
     for driver in available_drivers:
-        # Suponemos que el conductor tiene ubicación como pasajero (mock)
-        if hasattr(driver.user, 'passenger'):
-            current_lat = driver.user.passenger.current_lat
-            current_lng = driver.user.passenger.current_lng
-        else:
-            continue
-
+        current_lat = driver.current_lat
+        current_lng = driver.current_lng
         if current_lat is None or current_lng is None:
             continue
 
@@ -177,3 +172,28 @@ def assign_driver_to_trip(request, trip_id):
         'distance_km': round(min_distance, 2),
         'trip': TripSerializer(trip).data
     }, status=status.HTTP_200_OK)
+
+# ==========================
+# Endpoint para actualizar ubicación del conductor
+# ==========================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_driver_location(request):
+    """
+    Permite que un conductor actualice su ubicación actual (latitud y longitud).
+    """
+    user = request.user
+    if not hasattr(user, 'driver'):
+        return Response({'error': 'Solo los conductores pueden actualizar ubicación.'}, status=403)
+    lat = request.data.get('lat')
+    lng = request.data.get('lng')
+    if lat is None or lng is None:
+        return Response({'error': 'Faltan coordenadas.'}, status=400)
+    try:
+        user.driver.current_lat = float(lat)
+        user.driver.current_lng = float(lng)
+        user.driver.save()
+        return Response({'message': 'Ubicación actualizada correctamente.'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
