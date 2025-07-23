@@ -35,3 +35,7 @@ class TripSerializer(serializers.ModelSerializer):
 class DriverLocationUpdateSerializer(serializers.Serializer):
     lat = serializers.FloatField()
     lng = serializers.FloatField()
+
+class RegisterSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)

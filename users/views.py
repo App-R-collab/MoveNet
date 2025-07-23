@@ -5,7 +5,7 @@ from rest_framework import status, generics, permissions, serializers
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from .models import Driver, Passenger, Trip
-from .serializers import TripSerializer, DriverLocationUpdateSerializer
+from .serializers import TripSerializer, DriverLocationUpdateSerializer, RegisterSerializer
 
 from math import radians, cos, sin, asin, sqrt
 
@@ -23,14 +23,15 @@ User = get_user_model()
 def protected_view(request):
     return Response({"message": "¡Accediste a una vista protegida con éxito!"})
 
+@swagger_auto_schema(method='post', request_body=RegisterSerializer)
 @api_view(['POST'])
 def register_view(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
+    serializer = RegisterSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    username = serializer.validated_data['username']
+    password = serializer.validated_data['password']
     referred_by_username = request.data.get('referred_by')  # Opcional
-
-    if not username or not password:
-        return Response({'error': 'Faltan campos obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         referred_by = None
@@ -39,6 +40,9 @@ def register_view(request):
                 referred_by = User.objects.get(username=referred_by_username)
             except User.DoesNotExist:
                 return Response({'error': 'El código de referido no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'El nombre de usuario ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.create_user(username=username, password=password, referred_by=referred_by)
         return Response({'message': 'Usuario registrado exitosamente.'}, status=status.HTTP_201_CREATED)
