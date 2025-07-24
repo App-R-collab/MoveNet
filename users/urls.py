@@ -9,6 +9,7 @@ from .views import (
     TripCreateView,
     assign_driver_to_trip,
     update_driver_location,
+    TripStatusUpdateView,  # <-- Agrega esto
 )
 
 urlpatterns = [
@@ -23,4 +24,5 @@ urlpatterns = [
     path('trips/create/', TripCreateView.as_view(), name='trip-create'),
     path('trips/<int:trip_id>/assign_driver/', assign_driver_to_trip, name='assign-driver-to-trip'),
     path('driver/update-location/', update_driver_location, name='update_driver_location'),
+    path('trips/<int:pk>/status/', TripStatusUpdateView.as_view(), name='trip-status-update'),  # <-- NUEVA RUTA
 ]

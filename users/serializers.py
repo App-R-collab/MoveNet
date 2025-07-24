@@ -39,3 +39,14 @@ class DriverLocationUpdateSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+class TripStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = ['status']
+
+    def validate_status(self, value):
+        valid_statuses = [choice[0] for choice in Trip.STATUS_CHOICES]
+        if value not in valid_statuses:
+            raise serializers.ValidationError("Estado inválido.")
+        return value    

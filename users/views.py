@@ -5,12 +5,18 @@ from rest_framework import status, generics, permissions, serializers
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from .models import Driver, Passenger, Trip
-from .serializers import TripSerializer, DriverLocationUpdateSerializer, RegisterSerializer
-
+from .serializers import (
+    TripSerializer,
+    DriverLocationUpdateSerializer,
+    RegisterSerializer,
+    TripStatusUpdateSerializer,  # Solo una vez
+)
 from math import radians, cos, sin, asin, sqrt
 
 # Importa el decorador de drf-yasg para documentar el body en Swagger
 from drf_yasg.utils import swagger_auto_schema
+
+from rest_framework.views import APIView
 
 User = get_user_model()
 
@@ -110,6 +116,34 @@ class TripCreateView(generics.CreateAPIView):
         if not passenger:
             raise serializers.ValidationError("El usuario no es un pasajero registrado.")
         serializer.save(passenger=passenger)
+
+# ==========================
+# Endpoint para actualizar el estado del viaje
+# ==========================
+
+class TripStatusUpdateView(APIView):
+    """
+    Permite actualizar el estado de un viaje (pending, assigned, in_progress, completed, cancelled).
+    Solo el conductor asignado o el pasajero pueden cambiar el estado.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            trip = Trip.objects.get(pk=pk)
+        except Trip.DoesNotExist:
+            return Response({"detail": "Viaje no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        # Solo el pasajero o el conductor asignado pueden cambiar el estado
+        if not (hasattr(user, "passenger") and trip.passenger.user == user) and not (hasattr(user, "driver") and trip.driver and trip.driver.user == user):
+            return Response({"detail": "No tienes permiso para modificar este viaje."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = TripStatusUpdateSerializer(trip, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(TripSerializer(trip).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ==========================
 # Asignar conductor más cercano a un viaje pendiente (mock notificación)
