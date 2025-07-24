@@ -73,3 +73,20 @@ class Trip(models.Model):
             self.fare = None
 
         super().save(*args, **kwargs)
+
+# Modelo para gestionar reportes
+class Report(models.Model):
+    REPORT_TYPE_CHOICES = [
+        ('incidente', 'Incidente'),
+        ('sospecha', 'Sospecha'),
+        ('otro', 'Otro'),
+    ]
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='reports')
+    trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports')
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPE_CHOICES, default='incidente')
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Reporte {self.id} - {self.user.username} - {self.report_type}"
