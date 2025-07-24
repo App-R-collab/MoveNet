@@ -1,8 +1,11 @@
 import math
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db.models import Sum
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 
-# Usuario personalizado (puedes ajustar campos según tu proyecto)
+# Usuario personalizado
 class CustomUser(AbstractUser):
     referral_code = models.CharField(max_length=20, unique=True, null=True, blank=True)
     referred_by = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals')
@@ -51,13 +54,11 @@ class Trip(models.Model):
         return f"Viaje {self.id} - Pasajero: {self.passenger.user.username} - Estado: {self.status}"
 
     def save(self, *args, **kwargs):
-        # Parámetros de tarifa
-        TARIFA_BASE = 3000  # Tarifa base en tu moneda local
-        PRECIO_POR_KM = 1200  # Precio por kilómetro
+        TARIFA_BASE = 3000
+        PRECIO_POR_KM = 1200
 
-        # Calcular distancia usando la fórmula de Haversine
         def haversine(lat1, lon1, lat2, lon2):
-            R = 6371  # Radio de la Tierra en km
+            R = 6371
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
             dlat = lat2 - lat1
             dlon = lon2 - lon1
@@ -65,7 +66,6 @@ class Trip(models.Model):
             c = 2 * math.asin(math.sqrt(a))
             return R * c
 
-        # Solo calcular si hay coordenadas válidas
         if self.origin_lat and self.origin_lng and self.destination_lat and self.destination_lng:
             distancia_km = haversine(self.origin_lat, self.origin_lng, self.destination_lat, self.destination_lng)
             self.fare = round(TARIFA_BASE + (distancia_km * PRECIO_POR_KM), 2)
@@ -74,7 +74,6 @@ class Trip(models.Model):
 
         super().save(*args, **kwargs)
 
-# Modelo para gestionar reportes
 class Report(models.Model):
     REPORT_TYPE_CHOICES = [
         ('incidente', 'Incidente'),
@@ -102,7 +101,6 @@ class Report(models.Model):
     def __str__(self):
         return f"Reporte {self.id} - {self.user.username} - {self.report_type}"
 
-# Modelos para las promociones y referidos
 class Promotion(models.Model):
     TARGET_CHOICES = [
         ('conductor', 'Solo conductores'),
@@ -112,8 +110,8 @@ class Promotion(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
     bonus_amount = models.DecimalField(max_digits=8, decimal_places=2)
-    min_invited_users = models.PositiveIntegerField(default=0, help_text="Cantidad mínima de usuarios invitados")
-    min_trips = models.PositiveIntegerField(default=0, help_text="Cantidad mínima de viajes realizados")
+    min_invited_users = models.PositiveIntegerField(default=0)
+    min_trips = models.PositiveIntegerField(default=0)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     target_group = models.CharField(max_length=20, choices=TARGET_CHOICES, default='todos')
@@ -124,26 +122,72 @@ class Promotion(models.Model):
     class Meta:
         verbose_name_plural = "Promociones generales"
 
-
 class UserPromotion(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_promotions')
     promotion = models.ForeignKey(Promotion, on_delete=models.CASCADE, related_name='user_promotions')
     awarded_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
-    
 
     def __str__(self):
         return f"{self.user.username} - {self.promotion.name}"   
-    
-    class Meta:
-        verbose_name_plural = "Promociones personalizadas"   
 
-# politicas y condiciones de bonos y referidos
+    class Meta:
+        verbose_name_plural = "Promociones personalizadas"
+
 class Policy(models.Model):
     title = models.CharField(max_length=100, default="Políticas y Condiciones")
-    content = models.TextField(help_text="Texto completo de las políticas y condiciones para bonos y referidos")
+    content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.title         
+        return self.title
+
+class Earning(models.Model):
+    EARNING_TYPE_CHOICES = [
+        ('referido', 'Referido'),
+        ('promocion', 'Promoción'),
+        ('viaje', 'Viaje'),
+        ('otro', 'Otro'),
+    ]
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='earnings')
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    earning_type = models.CharField(max_length=20, choices=EARNING_TYPE_CHOICES)
+    related_trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='earnings')
+    related_promotion = models.ForeignKey(Promotion, on_delete=models.SET_NULL, null=True, blank=True, related_name='earnings')
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.earning_type} - ${self.amount}"
+
+    class Meta:
+        verbose_name_plural = "Ganancias totales de personas"
+
+class EarningSummary(Earning):
+    class Meta:
+        proxy = True
+        verbose_name = 'Resumen de Ganancias'
+        verbose_name_plural = 'Resumen de Ganancias'
+
+    @property
+    def total_ganado(self):
+        return Earning.objects.filter(user=self.user).aggregate(total=Sum('amount'))['total'] or 0
+
+@receiver(post_save, sender=UserPromotion)
+def crear_ganancia_por_promocion(sender, instance, created, **kwargs):
+    if created:
+        existe = Earning.objects.filter(
+            user=instance.user,
+            related_promotion=instance.promotion,
+            earning_type='promocion'
+        ).exists()
+
+        if not existe:
+            Earning.objects.create(
+                user=instance.user,
+                amount=instance.promotion.bonus_amount,
+                earning_type='promocion',
+                related_promotion=instance.promotion,
+                description=f"Ganancia automática por promoción: {instance.promotion.name}"
+            )

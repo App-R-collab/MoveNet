@@ -1,0 +1,43 @@
+{% extends 'admin/change_list.html' %}
+{% load i18n admin_urls static admin_list %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:users_earning_changelist' %}" class="addlink">
+            {% translate 'View all individual earnings' %}
+        </a>
+    </li>
+{% endblock %}
+
+{% block content %}
+    <h1>{% translate 'Earnings Summary' %}</h1>
+    <p>{% translate 'This panel provides a summary of total earnings per user.' %}</p>
+
+    <div id="content-main">
+        <div class="module" id="changelist">
+            <div class="changelist-form">
+                <div class="results">
+                    <table id="result_list">
+                        <thead>
+                            <tr>
+                                <th>{% translate 'User' %}</th>
+                                <th>{% translate 'Total Earned' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in cl.result_list %}
+                                <tr class="{% cycle 'row1' 'row2' %}">
+                                    <td>{{ result.user }}</td>
+                                    <td>${{ result.total_ganado|floatformat:2 }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="2">{% translate 'No earnings data available.' %}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
