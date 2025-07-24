@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Driver, Passenger, Trip, Report
+from .models import CustomUser, Driver, Passenger, Trip, Report, Promotion, UserPromotion, Policy
 
 # Panel personalizado para usuarios
 class CustomUserAdmin(UserAdmin):
@@ -84,9 +84,31 @@ admin.site.index_title = "Bienvenido al Panel MoveNet"
 
 # Registrar y personalizar el panel de admin
 class ReportAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'trip', 'report_type', 'created_at')
-    list_filter = ('report_type', 'created_at')
-    search_fields = ('user__username', 'trip__id', 'description')
+    list_display = ('id', 'user', 'trip', 'report_type', 'status', 'created_at')
+    list_filter = ('report_type', 'status', 'created_at')
+    search_fields = ('user__username', 'trip__id', 'description', 'followup_notes')
+    fields = ('user', 'trip', 'report_type', 'description', 'status', 'followup_notes', 'created_at')
     readonly_fields = ('created_at',)
 
 admin.site.register(Report, ReportAdmin)
+
+# Registro de promociones bonos y politicas
+class PromotionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'bonus_amount', 'min_invited_users', 'min_trips', 'start_date', 'end_date')
+    search_fields = ('name', 'description')
+    fields = ('name', 'description', 'bonus_amount', 'target_group', 'min_invited_users', 'min_trips', 'start_date', 'end_date')
+
+class UserPromotionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'promotion', 'awarded_at')
+    search_fields = ('user__username', 'promotion__name')
+    fields = ('user', 'promotion', 'awarded_at', 'notes')
+    readonly_fields = ('awarded_at',)
+
+class PolicyAdmin(admin.ModelAdmin):
+    list_display = ('title', 'updated_at')
+    fields = ('title', 'content')
+    search_fields = ('title',)
+
+admin.site.register(Promotion, PromotionAdmin)
+admin.site.register(UserPromotion, UserPromotionAdmin)
+admin.site.register(Policy, PolicyAdmin)
