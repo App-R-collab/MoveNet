@@ -5,7 +5,6 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 
-# Usuario personalizado
 class CustomUser(AbstractUser):
     referral_code = models.CharField(max_length=20, unique=True, null=True, blank=True)
     referred_by = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals')
@@ -129,7 +128,7 @@ class UserPromotion(models.Model):
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.promotion.name}"   
+        return f"{self.user.username} - {self.promotion.name}"
 
     class Meta:
         verbose_name_plural = "Promociones personalizadas"
@@ -161,19 +160,6 @@ class Earning(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.earning_type} - ${self.amount}"
 
-    class Meta:
-        verbose_name_plural = "Ganancias totales de personas"
-
-class EarningSummary(Earning):
-    class Meta:
-        proxy = True
-        verbose_name = 'Resumen de Ganancias'
-        verbose_name_plural = 'Resumen de Ganancias'
-
-    @property
-    def total_ganado(self):
-        return Earning.objects.filter(user=self.user).aggregate(total=Sum('amount'))['total'] or 0
-
 @receiver(post_save, sender=UserPromotion)
 def crear_ganancia_por_promocion(sender, instance, created, **kwargs):
     if created:
@@ -191,3 +177,20 @@ def crear_ganancia_por_promocion(sender, instance, created, **kwargs):
                 related_promotion=instance.promotion,
                 description=f"Ganancia automática por promoción: {instance.promotion.name}"
             )
+
+# ✅ MODELO PROXY FINAL PARA RESUMEN DE GANANCIAS
+class ResumenGananciasProxy(CustomUser):
+    class Meta:
+        proxy = True
+        verbose_name = "Resumen de Ganancias"
+        verbose_name_plural = "Resumen de Ganancias"
+
+# ✅ MODELO DE MENSAJES DE CHAT
+class ChatMessage(models.Model):
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.message[:20]}"

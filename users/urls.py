@@ -5,11 +5,11 @@ from .views import (
     register_driver,
     register_passenger,
     check_driver_status,
-    TripListView,
-    TripCreateView,
+    TripListCreateView,
     assign_driver_to_trip,
-    update_driver_location,
-    TripStatusUpdateView,  # <-- Agrega esto
+    UpdateDriverLocationView,
+    TripStatusUpdateView,
+    ChatMessageListCreateView
 )
 
 urlpatterns = [
@@ -20,9 +20,9 @@ urlpatterns = [
     path('driver/status/', check_driver_status, name='check_driver_status'),
 
     # Endpoints para viajes
-    path('trips/', TripListView.as_view(), name='trip-list'),
-    path('trips/create/', TripCreateView.as_view(), name='trip-create'),
+    path('trips/', TripListCreateView.as_view(), name='trip-list-create'),
     path('trips/<int:trip_id>/assign_driver/', assign_driver_to_trip, name='assign-driver-to-trip'),
-    path('driver/update-location/', update_driver_location, name='update_driver_location'),
-    path('trips/<int:pk>/status/', TripStatusUpdateView.as_view(), name='trip-status-update'),  # <-- NUEVA RUTA
+    path('driver/update-location/', UpdateDriverLocationView.as_view(), name='update_driver_location'),
+    path('trips/<int:pk>/status/', TripStatusUpdateView.as_view(), name='trip-status-update'),  
+    path('chats/<int:trip_id>/', ChatMessageListCreateView.as_view(), name='chat-messages'),
 ]

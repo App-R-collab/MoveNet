@@ -1,239 +1,160 @@
+from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status, generics, permissions, serializers
-from django.contrib.auth import get_user_model
-from django.db import IntegrityError
-from .models import Driver, Passenger, Trip
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404
+
+from .models import Trip, ChatMessage, Driver, Passenger
 from .serializers import (
     TripSerializer,
     DriverLocationUpdateSerializer,
+    TripStatusUpdateSerializer,
+    ChatMessageSerializer,
     RegisterSerializer,
-    TripStatusUpdateSerializer,  # Solo una vez
 )
-from math import radians, cos, sin, asin, sqrt
 
-# Importa el decorador de drf-yasg para documentar el body en Swagger
-from drf_yasg.utils import swagger_auto_schema
-
-from rest_framework.views import APIView
-
-User = get_user_model()
-
-# ==========================
-# Vistas de Usuarios y Roles
-# ==========================
-
+# ✅ VISTA PROTEGIDA PARA TEST DE AUTENTICACIÓN
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated])
 def protected_view(request):
-    return Response({"message": "¡Accediste a una vista protegida con éxito!"})
+    return Response({'message': f'Hola, {request.user.username}. Estás autenticado correctamente.'})
 
-@swagger_auto_schema(method='post', request_body=RegisterSerializer)
+
+# ✅ REGISTRO DE USUARIO BASE
 @api_view(['POST'])
+@permission_classes([permissions.AllowAny])
 def register_view(request):
     serializer = RegisterSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    username = serializer.validated_data['username']
-    password = serializer.validated_data['password']
-    referred_by_username = request.data.get('referred_by')  # Opcional
+    if serializer.is_valid():
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+        User.objects.create_user(username=username, password=password)
+        return Response({'message': 'Usuario registrado correctamente.'}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        referred_by = None
-        if referred_by_username:
-            try:
-                referred_by = User.objects.get(username=referred_by_username)
-            except User.DoesNotExist:
-                return Response({'error': 'El código de referido no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(username=username).exists():
-            return Response({'error': 'El nombre de usuario ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = User.objects.create_user(username=username, password=password, referred_by=referred_by)
-        return Response({'message': 'Usuario registrado exitosamente.'}, status=status.HTTP_201_CREATED)
-
-    except IntegrityError:
-        return Response({'error': 'El nombre de usuario ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
-
+# ✅ REGISTRO DE CONDUCTOR
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated])
 def register_driver(request):
     user = request.user
-    data = request.data
-
     if hasattr(user, 'driver'):
-        return Response({"detail": "Este usuario ya es conductor."}, status=400)
+        return Response({'error': 'Este usuario ya es un conductor.'}, status=400)
+    Driver.objects.create(user=user)
+    return Response({'message': 'Conductor registrado correctamente.'})
 
-    driver = Driver.objects.create(
-        user=user,
-        license_number=data.get("license_number"),
-        car_plate=data.get("car_plate"),
-    )
-    return Response({"detail": "Conductor registrado. Pendiente de aprobación."})
 
+# ✅ REGISTRO DE PASAJERO
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated])
 def register_passenger(request):
     user = request.user
-
     if hasattr(user, 'passenger'):
-        return Response({"detail": "Este usuario ya es pasajero."}, status=400)
+        return Response({'error': 'Este usuario ya es un pasajero.'}, status=400)
+    Passenger.objects.create(user=user)
+    return Response({'message': 'Pasajero registrado correctamente.'})
 
-    passenger = Passenger.objects.create(user=user)
-    return Response({"detail": "Pasajero registrado correctamente."})
 
+# ✅ ESTADO DE CONDUCTOR
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated])
 def check_driver_status(request):
     user = request.user
+    is_driver = hasattr(user, 'driver')
+    return Response({'is_driver': is_driver})
+
+
+# ✅ ASIGNAR CONDUCTOR A UN VIAJE
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def assign_driver_to_trip(request, trip_id):
     try:
-        driver = user.driver
-        return Response({
-            "is_approved": driver.is_approved,
-            "license_number": driver.license_number,
-            "car_plate": driver.car_plate
-        })
-    except Driver.DoesNotExist:
-        return Response({"detail": "No es un conductor registrado."}, status=404)
+        trip = Trip.objects.get(id=trip_id)
+        driver = request.user.driver
+        if trip.driver is not None:
+            return Response({'error': 'Este viaje ya tiene un conductor asignado.'}, status=400)
+        trip.driver = driver
+        trip.save()
+        return Response({'message': 'Conductor asignado al viaje.'})
+    except Trip.DoesNotExist:
+        return Response({'error': 'Viaje no encontrado.'}, status=404)
+    except AttributeError:
+        return Response({'error': 'Este usuario no es un conductor.'}, status=400)
 
-# ==========================
-# Vistas para Viajes (Trip)
-# ==========================
 
-class TripListView(generics.ListAPIView):
-    queryset = Trip.objects.all()
-    serializer_class = TripSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class TripCreateView(generics.CreateAPIView):
-    queryset = Trip.objects.all()
+# ✅ LISTA Y CREA VIAJES
+class TripListCreateView(generics.ListCreateAPIView):
+    queryset = Trip.objects.all().order_by('-created_at')
     serializer_class = TripSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        passenger = getattr(self.request.user, 'passenger', None)
-        if not passenger:
-            raise serializers.ValidationError("El usuario no es un pasajero registrado.")
-        serializer.save(passenger=passenger)
+        serializer.save(passenger=self.request.user.passenger)
 
-# ==========================
-# Endpoint para actualizar el estado del viaje
-# ==========================
 
-class TripStatusUpdateView(APIView):
-    """
-    Permite actualizar el estado de un viaje (pending, assigned, in_progress, completed, cancelled).
-    Solo el conductor asignado o el pasajero pueden cambiar el estado.
-    """
+# ✅ ACTUALIZAR ESTADO DEL VIAJE
+class TripStatusUpdateView(generics.UpdateAPIView):
+    queryset = Trip.objects.all()
+    serializer_class = TripStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def patch(self, request, pk):
-        try:
-            trip = Trip.objects.get(pk=pk)
-        except Trip.DoesNotExist:
-            return Response({"detail": "Viaje no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-        user = request.user
-        # Solo el pasajero o el conductor asignado pueden cambiar el estado
-        if not (hasattr(user, "passenger") and trip.passenger.user == user) and not (hasattr(user, "driver") and trip.driver and trip.driver.user == user):
-            return Response({"detail": "No tienes permiso para modificar este viaje."}, status=status.HTTP_403_FORBIDDEN)
+# ✅ ACTUALIZAR UBICACIÓN DEL CONDUCTOR
+class UpdateDriverLocationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-        serializer = TripStatusUpdateSerializer(trip, data=request.data, partial=True)
+    def post(self, request):
+        serializer = DriverLocationUpdateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(TripSerializer(trip).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# ==========================
-# Asignar conductor más cercano a un viaje pendiente (mock notificación)
-# ==========================
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def assign_driver_to_trip(request, trip_id):
-    """
-    Asigna automáticamente el conductor aprobado y disponible más cercano a un viaje pendiente.
-    Simula una notificación al conductor (mock).
-    """
-    try:
-        trip = Trip.objects.get(id=trip_id)
-    except Trip.DoesNotExist:
-        return Response({'error': 'Viaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-    if trip.status != 'pending':
-        return Response({'error': 'El viaje no está pendiente.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Obtener todos los conductores aprobados y disponibles
-    available_drivers = Driver.objects.filter(is_approved=True).exclude(trips__status__in=['assigned', 'in_progress'])
-
-    if not available_drivers.exists():
-        return Response({'error': 'No hay conductores disponibles.'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Función para calcular la distancia entre dos puntos (Haversine)
-    def haversine(lat1, lon1, lat2, lon2):
-        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        c = 2 * asin(sqrt(a))
-        r = 6371  # Radio de la Tierra en km
-        return c * r
-
-    # Buscar el conductor más cercano usando current_lat/current_lng de Driver
-    min_distance = None
-    nearest_driver = None
-    for driver in available_drivers:
-        current_lat = driver.current_lat
-        current_lng = driver.current_lng
-        if current_lat is None or current_lng is None:
-            continue
-
-        distance = haversine(
-            trip.origin_lat, trip.origin_lng,
-            current_lat, current_lng
-        )
-        if (min_distance is None) or (distance < min_distance):
-            min_distance = distance
-            nearest_driver = driver
-
-    if not nearest_driver:
-        return Response({'error': 'No hay conductores con ubicación disponible.'}, status=status.HTTP_404_NOT_FOUND)
-
-    trip.driver = nearest_driver
-    trip.status = 'assigned'
-    trip.save()
-
-    # Mock de notificación al conductor
-    notification_message = f"¡Conductor {nearest_driver.user.username} asignado al viaje {trip.id}! (Mock de notificación)"
-
-    return Response({
-        'message': 'Conductor más cercano asignado exitosamente.',
-        'notification': notification_message,
-        'distance_km': round(min_distance, 2),
-        'trip': TripSerializer(trip).data
-    }, status=status.HTTP_200_OK)
-
-# ==========================
-# Endpoint para actualizar ubicación del conductor
-# ==========================
-
-@swagger_auto_schema(method='post', request_body=DriverLocationUpdateSerializer)
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def update_driver_location(request):
-    """
-    Permite que un conductor actualice su ubicación actual (latitud y longitud).
-    """
-    user = request.user
-    if not hasattr(user, 'driver'):
-        return Response({'error': 'Solo los conductores pueden actualizar ubicación.'}, status=403)
-    serializer = DriverLocationUpdateSerializer(data=request.data)
-    if not serializer.is_valid():
+            driver = request.user.driver
+            driver.current_lat = serializer.validated_data['lat']
+            driver.current_lng = serializer.validated_data['lng']
+            driver.save()
+            return Response({'message': 'Ubicación actualizada correctamente'})
         return Response(serializer.errors, status=400)
-    lat = serializer.validated_data['lat']
-    lng = serializer.validated_data['lng']
-    user.driver.current_lat = lat
-    user.driver.current_lng = lng
-    user.driver.save()
-    return Response({'message': 'Ubicación actualizada correctamente.'})
+
+
+# ✅ ENVIAR MENSAJE EN CHAT DEL VIAJE
+class SendChatMessageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, trip_id):
+        trip = get_object_or_404(Trip, id=trip_id)
+        message_text = request.data.get('message')
+
+        if not message_text:
+            return Response({'error': 'Mensaje vacío'}, status=400)
+
+        message = ChatMessage.objects.create(
+            trip=trip,
+            sender=request.user,
+            message=message_text
+        )
+        serializer = ChatMessageSerializer(message)
+        return Response(serializer.data, status=201)
+
+
+# ✅ LISTAR MENSAJES DE UN VIAJE
+class TripChatMessagesView(generics.ListAPIView):
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        trip_id = self.kwargs['trip_id']
+        return ChatMessage.objects.filter(trip__id=trip_id).order_by('timestamp')
+
+
+# ✅ LISTA Y CREA MENSAJES EN UNA SOLA VISTA
+class ChatMessageListCreateView(generics.ListCreateAPIView):
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        trip_id = self.kwargs['trip_id']
+        return ChatMessage.objects.filter(trip_id=trip_id).order_by('timestamp')
+
+    def perform_create(self, serializer):
+        trip_id = self.kwargs['trip_id']
+        trip = Trip.objects.get(id=trip_id)
+        serializer.save(sender=self.request.user, trip=trip)

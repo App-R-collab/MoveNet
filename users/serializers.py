@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Trip, Passenger, Driver
+from .models import Trip, Passenger, Driver, ChatMessage  # <-- ✅ Importamos ChatMessage
 
 class TripSerializer(serializers.ModelSerializer):
     passenger = serializers.PrimaryKeyRelatedField(queryset=Passenger.objects.all())
@@ -49,4 +49,13 @@ class TripStatusUpdateSerializer(serializers.ModelSerializer):
         valid_statuses = [choice[0] for choice in Trip.STATUS_CHOICES]
         if value not in valid_statuses:
             raise serializers.ValidationError("Estado inválido.")
-        return value    
+        return value
+
+# ✅ NUEVO SERIALIZER PARA MENSAJES DE CHAT
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'trip', 'sender', 'sender_username', 'message', 'timestamp']
+        read_only_fields = ['id', 'timestamp', 'sender_username']
