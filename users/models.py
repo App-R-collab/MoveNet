@@ -12,6 +12,10 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
+    class Meta:
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 01. Usuarios"
+
 class Driver(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     license_number = models.CharField(max_length=50)
@@ -22,12 +26,20 @@ class Driver(models.Model):
 
     def __str__(self):
         return f"Conductor: {self.user.username}"
+    
+    class Meta:
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 02. Driver"
 
 class Passenger(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"Pasajero: {self.user.username}"
+    
+    class Meta:
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 03. Passenger"
 
 class Trip(models.Model):
     STATUS_CHOICES = [
@@ -73,6 +85,12 @@ class Trip(models.Model):
 
         super().save(*args, **kwargs)
 
+    class Meta:
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 04. Trips"
+
+        
+
 class Report(models.Model):
     REPORT_TYPE_CHOICES = [
         ('incidente', 'Incidente'),
@@ -100,6 +118,10 @@ class Report(models.Model):
     def __str__(self):
         return f"Reporte {self.id} - {self.user.username} - {self.report_type}"
 
+    class Meta:
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 07. Report"    
+
 class Promotion(models.Model):
     TARGET_CHOICES = [
         ('conductor', 'Solo conductores'),
@@ -118,8 +140,14 @@ class Promotion(models.Model):
     def __str__(self):
         return self.name
 
+    #class Meta:
+        #verbose_name_plural = "Promociones generales" por si las moscas
+
     class Meta:
-        verbose_name_plural = "Promociones generales"
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 05. Promociones generales"    
+
+        
 
 class UserPromotion(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_promotions')
@@ -130,8 +158,13 @@ class UserPromotion(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.promotion.name}"
 
+    #class Meta:
+       # verbose_name_plural = "Promociones personalizadas" # por si las moscas la dejo alli 
+
     class Meta:
-        verbose_name_plural = "Promociones personalizadas"
+        verbose_name = "Usuario"  # Usa un carácter invisible
+        verbose_name_plural = " 06. Promociones personalizadas"
+        
 
 class Policy(models.Model):
     title = models.CharField(max_length=100, default="Políticas y Condiciones")
@@ -141,6 +174,10 @@ class Policy(models.Model):
 
     def __str__(self):
         return self.title
+
+    class Meta:
+        verbose_name = "Politicas"  # Usa un carácter invisible
+        verbose_name_plural = " 11. Politicas"    
 
 class Earning(models.Model):
     EARNING_TYPE_CHOICES = [
@@ -159,6 +196,10 @@ class Earning(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.earning_type} - ${self.amount}"
+
+    class Meta:
+        verbose_name = "Detalle de Ganancia"
+        verbose_name_plural = " 08. Detalle de Ganancias"    
 
 @receiver(post_save, sender=UserPromotion)
 def crear_ganancia_por_promocion(sender, instance, created, **kwargs):
@@ -183,7 +224,7 @@ class ResumenGananciasProxy(CustomUser):
     class Meta:
         proxy = True
         verbose_name = "Resumen de Ganancias"
-        verbose_name_plural = "Resumen de Ganancias"
+        verbose_name_plural = " 09. Resumen de Ganancias"
 
 # ✅ MODELO DE MENSAJES DE CHAT
 class ChatMessage(models.Model):
@@ -194,3 +235,7 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.sender.username}: {self.message[:20]}"
+
+    class Meta:
+        verbose_name = "Mensaje de chat"  # Usa un carácter invisible
+        verbose_name_plural = " 10. Mensajes de Chat"        

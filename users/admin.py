@@ -11,6 +11,40 @@ class CustomUserAdmin(admin.ModelAdmin):
     list_display = ('username', 'email', 'referral_code', 'referred_by')
     search_fields = ('username', 'email', 'referral_code')
 
+    fieldsets = (
+        ('Información básica', {
+            'fields': (
+                'username',
+                'first_name',
+                'last_name',
+                'email',
+                'password',
+                'referral_code',
+                'referred_by',
+            )
+        }),
+        ('Permisos y estado', {
+            'fields': (
+                'is_active',
+                'is_staff',
+                'is_superuser',
+                'groups',
+                'user_permissions',
+            )
+        }),
+        ('Fechas importantes', {
+            'fields': (
+                'last_login',
+                'date_joined',
+            )
+        }),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Oculta al superusuario en el listado del admin
+        return qs.exclude(is_superuser=True)        
+
 @admin.register(Driver)
 class DriverAdmin(admin.ModelAdmin):
     list_display = ('user', 'license_number', 'car_plate', 'is_approved')
@@ -64,7 +98,12 @@ class ResumenGananciasAdmin(admin.ModelAdmin):
     search_fields = ('username',)
 
     def get_queryset(self, request):
-        return CustomUser.objects.all()
+        # Filtra usuarios que NO son superusuarios y que tienen al menos una ganancia
+        users_with_earnings = Earning.objects.values_list('user', flat=True).distinct()
+        return CustomUser.objects.filter(
+            is_superuser=False,
+            id__in=users_with_earnings
+        )
 
     def total_promociones(self, obj):
         total = Earning.objects.filter(
