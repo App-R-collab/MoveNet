@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-y_&mm&vh5ey^x&@mcwj=2^(s7i65q443u*jf29don10v9hmmi7')
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']  # Puedes restringir esto en producción
+ALLOWED_HOSTS = ['movenet.onrender.com']  # Puedes restringir esto en producción
 
 INSTALLED_APPS = [
     'django.contrib.admin',
