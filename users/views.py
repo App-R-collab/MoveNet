@@ -27,8 +27,26 @@ def protected_view(request):
 def register_view(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
-        user = serializer.save()  # <-- aquí se crea el usuario + Passenger o Driver
-        role = request.data.get('role')  # extrae el rol para devolverlo en la respuesta
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+        email = serializer.validated_data['email']
+        role = serializer.validated_data['role']
+
+        User = get_user_model()
+
+        # ✅ Verificamos si ya existe ese usuario o email
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Este nombre de usuario ya está registrado. Inicia sesión.'}, status=400)
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'Este correo ya está registrado. Inicia sesión.'}, status=400)
+
+        # ✅ Si no existe, se crea el usuario y el rol
+        user = User.objects.create_user(username=username, email=email, password=password)
+
+        if role == 'conductor':
+            Driver.objects.create(user=user)
+        elif role == 'pasajero':
+            Passenger.objects.create(user=user)
 
         return Response({
             'message': 'Usuario registrado correctamente.',
