@@ -2,7 +2,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
 from .models import Trip, ChatMessage, Driver, Passenger
@@ -27,23 +27,20 @@ def protected_view(request):
 def register_view(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
-        username = serializer.validated_data['username']
-        password = serializer.validated_data['password']
-        email = serializer.validated_data['email']
-        role = serializer.validated_data['role']
+        user = serializer.save()  # <-- aquí se crea el usuario + Passenger o Driver
+        role = request.data.get('role')  # extrae el rol para devolverlo en la respuesta
 
-        user = User.objects.create_user(username=username, password=password, email=email)
-
-        # Asignar rol
-        if role == 'conductor':
-            Driver.objects.create(user=user)
-        elif role == 'pasajero':
-            Passenger.objects.create(user=user)
-
-        return Response({'message': 'Usuario registrado correctamente.'}, status=status.HTTP_201_CREATED)
+        return Response({
+            'message': 'Usuario registrado correctamente.',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': role
+            }
+        }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 # ✅ REGISTRO DE CONDUCTOR
 @api_view(['POST'])

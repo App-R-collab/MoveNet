@@ -1,5 +1,8 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Trip, Passenger, Driver, ChatMessage  # <-- ✅ Importamos ChatMessage
+
+User = get_user_model()
 
 class TripSerializer(serializers.ModelSerializer):
     passenger = serializers.PrimaryKeyRelatedField(queryset=Passenger.objects.all())
@@ -41,6 +44,20 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
     role = serializers.ChoiceField(choices=['pasajero', 'conductor'])
+
+    def create(self, validated_data):
+        role = validated_data.pop('role')
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        if role == 'pasajero':
+            Passenger.objects.create(user=user)
+        elif role == 'conductor':
+            Driver.objects.create(user=user, license_number='TEMP', car_plate='TEMP')
+
+        return user
 
 class TripStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
