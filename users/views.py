@@ -21,7 +21,7 @@ def protected_view(request):
     return Response({'message': f'Hola, {request.user.username}. Estás autenticado correctamente.'})
 
 
-# ✅ REGISTRO DE USUARIO BASE
+# ✅ REGISTRO DE USUARIO BASE CON EMAIL Y ROL
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def register_view(request):
@@ -29,8 +29,19 @@ def register_view(request):
     if serializer.is_valid():
         username = serializer.validated_data['username']
         password = serializer.validated_data['password']
-        User.objects.create_user(username=username, password=password)
+        email = serializer.validated_data['email']
+        role = serializer.validated_data['role']
+
+        user = User.objects.create_user(username=username, password=password, email=email)
+
+        # Asignar rol
+        if role == 'conductor':
+            Driver.objects.create(user=user)
+        elif role == 'pasajero':
+            Passenger.objects.create(user=user)
+
         return Response({'message': 'Usuario registrado correctamente.'}, status=status.HTTP_201_CREATED)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
