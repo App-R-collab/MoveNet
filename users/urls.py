@@ -9,7 +9,8 @@ from .views import (
     assign_driver_to_trip,
     UpdateDriverLocationView,
     TripStatusUpdateView,
-    ChatMessageListCreateView
+    ChatMessageListCreateView,
+    login_view  # 👈 asegúrate de importar esta vista
 )
 
 urlpatterns = [
@@ -25,4 +26,7 @@ urlpatterns = [
     path('driver/update-location/', UpdateDriverLocationView.as_view(), name='update_driver_location'),
     path('trips/<int:pk>/status/', TripStatusUpdateView.as_view(), name='trip-status-update'),  
     path('chats/<int:trip_id>/', ChatMessageListCreateView.as_view(), name='chat-messages'),
+
+    # ✅ Login endpoint
+    path('login/', login_view, name='login_user'),  # 👈 AÑADE ESTA LÍNEA
 ]

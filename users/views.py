@@ -2,8 +2,9 @@ from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.shortcuts import get_object_or_404
+from rest_framework.authtoken.models import Token
 
 from .models import Trip, ChatMessage, Driver, Passenger
 from .serializers import (
@@ -21,6 +22,45 @@ def protected_view(request):
     return Response({'message': f'Hola, {request.user.username}. Estás autenticado correctamente.'})
 
 
+# ✅ LOGIN DE USUARIO
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def login_view(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+
+    if not email or not password:
+        return Response({'error': 'Se requieren email y contraseña.'}, status=400)
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'error': 'Correo no registrado.'}, status=404)
+
+    user = authenticate(username=user.username, password=password)
+
+    if user is not None:
+        token, created = Token.objects.get_or_create(user=user)
+
+        # Detectar rol
+        role = 'desconocido'
+        if hasattr(user, 'driver'):
+            role = 'conductor'
+        elif hasattr(user, 'passenger'):
+            role = 'pasajero'
+
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': role,
+            'token': token.key
+        })
+    else:
+        return Response({'error': 'Contraseña incorrecta.'}, status=401)
+
+
 # ✅ REGISTRO DE USUARIO BASE CON EMAIL Y ROL
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -34,13 +74,11 @@ def register_view(request):
 
         User = get_user_model()
 
-        # ✅ Verificamos si ya existe ese usuario o email
         if User.objects.filter(username=username).exists():
             return Response({'error': 'Este nombre de usuario ya está registrado. Inicia sesión.'}, status=400)
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Este correo ya está registrado. Inicia sesión.'}, status=400)
 
-        # ✅ Si no existe, se crea el usuario y el rol
         user = User.objects.create_user(username=username, email=email, password=password)
 
         if role == 'conductor':
@@ -59,6 +97,7 @@ def register_view(request):
         }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # ✅ REGISTRO DE CONDUCTOR
 @api_view(['POST'])
