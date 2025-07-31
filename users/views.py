@@ -22,7 +22,7 @@ def protected_view(request):
     return Response({'message': f'Hola, {request.user.username}. Estás autenticado correctamente.'})
 
 
-# ✅ LOGIN DE USUARIO
+# ✅ LOGIN DE USUARIO corregido para enviar respuesta legible
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def login_view(request):
@@ -51,12 +51,15 @@ def login_view(request):
             role = 'pasajero'
 
         return Response({
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'role': role,
-            'token': token.key
-        })
+            'token': token.key,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': role
+            }
+        }, status=200)
+
     else:
         return Response({'error': 'Contraseña incorrecta.'}, status=401)
 
