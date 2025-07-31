@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'users',
     'corsheaders',
     'drf_yasg',
+    'rest_framework.authtoken',  # Asegúrate de tener esto para el token de autenticación
 ]
 
 MIDDLEWARE = [
