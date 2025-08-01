@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model, authenticate
 from django.shortcuts import get_object_or_404
-from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Trip, ChatMessage, Driver, Passenger
 from .serializers import (
@@ -22,7 +22,7 @@ def protected_view(request):
     return Response({'message': f'Hola, {request.user.username}. Estás autenticado correctamente.'})
 
 
-# ✅ LOGIN DE USUARIO corregido para enviar respuesta legible
+# ✅ LOGIN DE USUARIO con JWT
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def login_view(request):
@@ -41,9 +41,8 @@ def login_view(request):
     user = authenticate(username=user.username, password=password)
 
     if user is not None:
-        token, created = Token.objects.get_or_create(user=user)
+        refresh = RefreshToken.for_user(user)
 
-        # Detectar rol
         role = 'desconocido'
         if hasattr(user, 'driver'):
             role = 'conductor'
@@ -51,7 +50,8 @@ def login_view(request):
             role = 'pasajero'
 
         return Response({
-            'token': token.key,
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
             'user': {
                 'id': user.id,
                 'username': user.username,
@@ -59,7 +59,6 @@ def login_view(request):
                 'role': role
             }
         }, status=200)
-
     else:
         return Response({'error': 'Contraseña incorrecta.'}, status=401)
 

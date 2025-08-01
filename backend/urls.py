@@ -39,8 +39,8 @@ urlpatterns = [
     path('api/', api_root_view),  # Para que /api/ muestre algo
 
     path('admin/', admin.site.urls),
-    path('api/token/', include('backend.urls_auth')),
-    path('api/', include('users.urls')),
+    path('api/token/', include('backend.urls_auth')),  # Ruta para token si la usas
+    path('api/', include('users.urls')),  # Todas las rutas de users.views
 
     # Swagger UI
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

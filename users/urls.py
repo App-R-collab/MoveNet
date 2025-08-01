@@ -10,7 +10,7 @@ from .views import (
     UpdateDriverLocationView,
     TripStatusUpdateView,
     ChatMessageListCreateView,
-    login_view  # 👈 asegúrate de importar esta vista
+    login_view
 )
 
 urlpatterns = [
@@ -27,6 +27,6 @@ urlpatterns = [
     path('trips/<int:pk>/status/', TripStatusUpdateView.as_view(), name='trip-status-update'),  
     path('chats/<int:trip_id>/', ChatMessageListCreateView.as_view(), name='chat-messages'),
 
-    # ✅ Login endpoint
-    path('login/', login_view, name='login_user'),  # 👈 AÑADE ESTA LÍNEA
+    # Login
+    path('login/', login_view, name='login_user'),
 ]
